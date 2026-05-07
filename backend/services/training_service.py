@@ -1,69 +1,48 @@
-import torch
-from torch.utils.data import DataLoader
+import os
 from pathlib import Path
 from ..core.celery_app import celery_app
 from ..ml.model import ModelWrapper
-from ..ml.dataset import CocoDataset, collate_fn
 from ..core.config import get_config, load_config
 
 @celery_app.task(bind=True)
 def train_model_task(self, run_id: str):
-    """Celery task for training the model."""
-    # Ensure config is loaded in the worker process
+    """Celery task for training the model using rfdetr's native trainer."""
+    
+    # 1. Setup Config
     load_config("backend/config.yaml")
     config = get_config()
     train_cfg = config.training
     model_cfg = config.model
     
-    # 1. Setup Data
-    dataset = CocoDataset(run_id)
-    loader = DataLoader(
-        dataset, 
-        batch_size=train_cfg.batch_size, 
-        shuffle=True, 
-        collate_fn=collate_fn
-    )
+    # 2. Path Setup
+    # rfdetr needs the directory containing annotations/train.json and the images
+    run_dir = Path("data/runs") / run_id
+    # Ensure full path for the library
+    run_dir_abs = str(run_dir.resolve())
     
-    # 2. Setup Model
-    # Determine num_classes from dataset or config
-    num_classes = model_cfg.num_classes + 1 # +1 for background in some DETR implementations
+    # 3. Initialize Official Model
+    num_classes = model_cfg.num_classes
     wrapper = ModelWrapper(num_classes=num_classes)
     wrapper.load_model({
-        "pretrained": model_cfg.pretrained,
-        "freeze_backbone": True # Mandatory requirement
+        "size": model_cfg.size,
+        "pretrained": model_cfg.pretrained
     })
     
-    # 3. Optimizer & Scaler
-    optimizer = torch.optim.AdamW(
-        filter(lambda p: p.requires_grad, wrapper.model.parameters()),
-        lr=train_cfg.learning_rate,
-        weight_decay=train_cfg.weight_decay
-    )
-    scaler = torch.cuda.amp.GradScaler()
+    # 4. Trigger Native Training
+    # rfdetr handles the mixed precision and logging internally
+    print(f"Starting native rfdetr training for {run_id}...")
     
-    # 4. Training Loop
-    epochs = train_cfg.epochs
-    for epoch in range(epochs):
-        total_loss = 0
-        for i, (images, targets) in enumerate(loader):
-            loss = wrapper.train_step(images, targets, optimizer, scaler)
-            total_loss += loss
-            
-            # Update Celery status
-            self.update_state(
-                state='PROGRESS',
-                meta={
-                    'epoch': epoch + 1,
-                    'batch': i + 1,
-                    'total_batches': len(loader),
-                    'loss': loss
-                }
-            )
-            
-        print(f"Epoch {epoch+1}/{epochs}, Average Loss: {total_loss/len(loader)}")
+    # We pass the root run directory. 
+    # The library will look for annotations/train.json and images/
+    wrapper.train(
+        dataset_path=run_dir_abs,
+        epochs=train_cfg.epochs,
+        lr=train_cfg.learning_rate,
+        batch_size=train_cfg.batch_size
+    )
 
-    # 5. Save Model
-    save_dir = Path("data/runs") / run_id / "models"
+    # 5. Save Final Artifact
+    save_dir = run_dir / "models"
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / "model.pt"
     wrapper.save(str(save_path))
