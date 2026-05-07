@@ -9,10 +9,9 @@ class AugmentationConfig(BaseModel):
 
 class ModelConfig(BaseModel):
     """Model hyper‑parameters and architecture details."""
-    name: str = Field(..., description="Identifier of the model architecture")
+    size: str = Field(default="small", description="RF-DETR size: nano, small, or medium")
     pretrained: bool = Field(default=True, description="Use pretrained weights if available")
-    num_classes: int = Field(..., gt=0, description="Number of output classes for detection")
-    backbone: Optional[str] = Field(default=None, description="Optional backbone name")
+    num_classes: int = Field(default=1, gt=0, description="Number of output classes for detection")
 
 class TrainingConfig(BaseModel):
     """Training loop configuration."""

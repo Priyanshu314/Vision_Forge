@@ -6,10 +6,9 @@ augmentation:
   noise_level: 0.05
 
 model:
-  name: "resnet50"
+  size: "small" # options: nano, small, medium
   pretrained: true
-  num_classes: 5
-  backbone: "resnet"
+  num_classes: 1 # Number of defect categories
 
 training:
   epochs: 20

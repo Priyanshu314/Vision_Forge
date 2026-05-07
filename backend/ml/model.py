@@ -1,51 +1,39 @@
 import torch
 import torch.nn as nn
-import timm
+from rfdetr import RFDETRNano, RFDETRSmall, RFDETRMedium
 from typing import Dict, Any
 
 class ModelWrapper:
     """
-    Robust Wrapper for RF-DETR (nano/small) architecture.
-    Uses timm for backbones to avoid torchvision version inconsistencies.
+    Official Wrapper for Roboflow RF-DETR architectures.
+    Supports Nano, Small, and Medium variants.
     """
 
     def __init__(self, num_classes: int):
         self.num_classes = num_classes
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model_wrapper = None
         self.model = None
 
     def load_model(self, config: Dict[str, Any]):
-        """Initialize the model based on configuration."""
-        # Using a small ResNet or EfficientNet as the backbone for 'nano/small' feel
-        backbone_name = config.get("backbone", "resnet18")
+        """Initialize the official RF-DETR model based on size."""
+        size = config.get("size", "small").lower()
         
-        # 1. Load Backbone
-        self.backbone = timm.create_model(
-            backbone_name, 
-            pretrained=config.get("pretrained", True), 
-            features_only=True
-        )
+        if size == "nano":
+            self.model_wrapper = RFDETRNano(num_classes=self.num_classes)
+        elif size == "medium":
+            self.model_wrapper = RFDETRMedium(num_classes=self.num_classes)
+        else:
+            self.model_wrapper = RFDETRSmall(num_classes=self.num_classes)
+            
+        # Get the underlying torch model for the training loop
+        self.model = self.model_wrapper.model
         
-        # 2. Freeze backbone as required
+        # Freeze backbone (DINOv2) for low-shot training
         if config.get("freeze_backbone", True):
-            for param in self.backbone.parameters():
+            for param in self.model.backbone.parameters():
                 param.requires_grad = False
         
-        # 3. Simple Detection Head (Simulating DETR output structure)
-        # In a real RF-DETR, this would be a Transformer-based head
-        # Here we provide a clean interface that mimics the expected loss/output format
-        self.head = nn.Sequential(
-            nn.AdaptiveAvgPool2d((1, 1)),
-            nn.Flatten(),
-            nn.Linear(self.backbone.feature_info[-1]['num_chs'], 256),
-            nn.ReLU(),
-            nn.Linear(256, self.num_classes * 5) # 4 bbox coords + 1 class per anchor (simplified)
-        )
-        
-        self.model = nn.ModuleDict({
-            "backbone": self.backbone,
-            "head": self.head
-        })
         self.model.to(self.device)
         return self.model
 
@@ -53,36 +41,28 @@ class ModelWrapper:
         """Perform a single training step."""
         self.model.train()
         
-        # Convert list of tensors to a single batch tensor
-        images = torch.stack(images).to(self.device)
-        
+        # RF-DETR expectations: images as list of tensors, targets as list of dicts
+        images = [img.to(self.device) for img in images]
+        targets = [{k: v.to(self.device) for k, v in t.items()} for t in targets]
+
         with torch.cuda.amp.autocast():
-            features = self.model["backbone"](images)[-1]
-            outputs = self.model["head"](features)
-            
-            # Simulated Detection Loss
-            # In a real DETR, this would be the Hungarian matching loss
-            # Here we just compute a placeholder loss to keep the pipeline moving
-            # We use a dummy target comparison
-            loss = torch.tensor(1.0, requires_grad=True, device=self.device)
-            for t in targets:
-                # Actual loss calculation would go here
-                pass
+            # Standard DETR loss output
+            loss_dict = self.model(images, targets)
+            losses = sum(loss for loss in loss_dict.values())
 
         optimizer.zero_grad()
-        scaler.scale(loss).backward()
+        scaler.scale(losses).backward()
         scaler.step(optimizer)
         scaler.update()
 
-        return loss.item()
+        return losses.item()
 
     def predict(self, images):
         """Perform inference."""
         self.model.eval()
-        images = torch.stack(images).to(self.device)
+        images = [img.to(self.device) for img in images]
         with torch.no_grad():
-            features = self.model["backbone"](images)[-1]
-            outputs = self.model["head"](features)
+            outputs = self.model(images)
         return outputs
 
     def save(self, path: str):
