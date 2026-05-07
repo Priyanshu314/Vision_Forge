@@ -1,0 +1,26 @@
+# Example configuration for the industrial defect detection platform
+
+augmentation:
+  flip_horizontal: true
+  random_crop: false
+  noise_level: 0.05
+
+model:
+  name: "resnet50"
+  pretrained: true
+  num_classes: 5
+  backbone: "resnet"
+
+training:
+  epochs: 20
+  batch_size: 16
+  learning_rate: 0.0005
+  optimizer: "adam"
+  weight_decay: 1e-4
+
+sampling:
+  strategy: "balanced"
+  seed: 1234
+
+experiment_name: "defect_detection_v1"
+output_dir: "./outputs"

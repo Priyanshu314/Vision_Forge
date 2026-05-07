@@ -1,0 +1,19 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Project Specific Data
+data/
+test_images/
+outputs/
+
+# Test Scripts
+test_client.py
+test_annotation.py
