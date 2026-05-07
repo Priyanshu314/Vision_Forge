@@ -20,8 +20,10 @@ def train_model_task(self, run_id: str):
     images_dir = run_dir / "images"
     ann_file = run_dir / "annotations" / "train.json"
     dataset_dir = run_dir / "dataset"
-    save_dir = run_dir / "models"
-    save_dir.mkdir(parents=True, exist_ok=True)
+    
+    # We save official weights in a dedicated outputs folder identifiable by run_id
+    output_base_dir = Path("outputs") / run_id
+    output_base_dir.mkdir(parents=True, exist_ok=True)
     
     # 3. Create Roboflow-style Dataset Structure
     train_dir = dataset_dir / "train"
@@ -31,13 +33,12 @@ def train_model_task(self, run_id: str):
     for d in [train_dir, valid_dir, test_dir]:
         d.mkdir(parents=True, exist_ok=True)
         
-    # 4. Copy images and annotations to 'train', 'valid', and 'test' folders
+    # 4. Copy images and annotations
     for d in [train_dir, valid_dir, test_dir]:
         if images_dir.exists():
             for img_path in images_dir.glob("*"):
                 if img_path.is_file():
                     shutil.copy(img_path, d / img_path.name)
-        
         if ann_file.exists():
             shutil.copy(ann_file, d / "_annotations.coco.json")
             
@@ -49,20 +50,31 @@ def train_model_task(self, run_id: str):
         "pretrained": model_cfg.pretrained
     })
     
-    # 6. Trigger Native Training with automatic saving
-    print(f"Starting native rfdetr training for {run_id}...")
+    # 6. Trigger Native Training
+    print(f"Starting native rfdetr training for run: {run_id}...")
     dataset_path_abs = str(dataset_dir.resolve())
-    save_dir_abs = str(save_dir.resolve())
+    output_dir_abs = str(output_base_dir.resolve())
     
     wrapper.train(
         dataset_path=dataset_path_abs,
         epochs=train_cfg.epochs,
         lr=train_cfg.learning_rate,
         batch_size=train_cfg.batch_size,
-        output_dir=save_dir_abs
+        output_dir=output_dir_abs
     )
 
-    # 7. Final Check
-    # The weights will be in save_dir_abs/checkpoint.pth or similar
-    # We can provide the directory path as the result
-    return {"status": "completed", "run_id": run_id, "model_dir": save_dir_abs}
+    # 7. Identify the saved weight file
+    # rfdetr typically saves as 'last.pth' or 'checkpoint.pth' in the output_dir
+    model_path = output_base_dir / "last.pth"
+    if not model_path.exists():
+        # Fallback to checking for any .pth file in the output dir
+        pth_files = list(output_base_dir.glob("*.pth"))
+        if pth_files:
+            model_path = pth_files[0]
+
+    return {
+        "status": "completed", 
+        "run_id": run_id, 
+        "model_path": str(model_path.resolve()),
+        "output_directory": output_dir_abs
+    }
