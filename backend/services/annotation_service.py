@@ -16,12 +16,13 @@ def save_annotations(run_id: str, coco_data: CocoFormat) -> str:
     # 2. Validation and Enrichment
     image_ids = {img.id for img in coco_data.images}
     for ann in coco_data.annotations:
-        if ann.image_id not in image_ids:
-            raise ValueError(f"Annotation image_id {ann.image_id} not found in images list.")
-        
         # Auto-calculate area if not set or zero
-        if ann.area == 0:
+        if ann.area <= 0:
             ann.area = ann.bbox[2] * ann.bbox[3]
+        
+        # Ensure segmentation and iscrowd are initialized
+        if ann.segmentation is None:
+            ann.segmentation = []
 
     # 3. Create directory if not exists
     ann_dir = DATA_DIR / run_id / "annotations"

@@ -14,6 +14,7 @@ class CocoAnnotation(BaseModel):
     bbox: List[float] = Field(..., min_length=4, max_length=4, description="[x, y, width, height]")
     area: float = Field(default=0.0)
     iscrowd: int = Field(default=0)
+    segmentation: List[List[float]] = Field(default_factory=list)
 
     @field_validator("bbox")
     @classmethod
