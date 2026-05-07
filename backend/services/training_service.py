@@ -29,23 +29,16 @@ def train_model_task(self, run_id: str):
     for d in [train_dir, valid_dir, test_dir]:
         d.mkdir(parents=True, exist_ok=True)
         
-    # 4. Copy images and annotations to 'train' folder
-    # In a production environment, we would use symlinks to save space
-    # but for an MVP, copying ensures absolute reliability.
-    if images_dir.exists():
-        for img_path in images_dir.glob("*"):
-            if img_path.is_file():
-                shutil.copy(img_path, train_dir / img_path.name)
-                
-    # Rename and move annotation file
-    if ann_file.exists():
-        shutil.copy(ann_file, train_dir / "_annotations.coco.json")
+    # 4. Copy images and annotations to 'train', 'valid', and 'test' folders
+    # We populate all splits to ensure the rfdetr pipeline has data for all phases
+    for d in [train_dir, valid_dir, test_dir]:
+        if images_dir.exists():
+            for img_path in images_dir.glob("*"):
+                if img_path.is_file():
+                    shutil.copy(img_path, d / img_path.name)
         
-    # rfdetr needs empty json files for valid/test if they don't exist
-    empty_coco = '{"images": [], "annotations": [], "categories": []}'
-    for d in [valid_dir, test_dir]:
-        with open(d / "_annotations.coco.json", "w") as f:
-            f.write(empty_coco)
+        if ann_file.exists():
+            shutil.copy(ann_file, d / "_annotations.coco.json")
             
     # 5. Initialize Official Model
     num_classes = model_cfg.num_classes
