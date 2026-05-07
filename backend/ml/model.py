@@ -27,31 +27,35 @@ class ModelWrapper:
             
         return self.model
 
-    def train(self, dataset_path: str, epochs: int, lr: float, batch_size: int):
+    def train(self, dataset_path: str, epochs: int, lr: float, batch_size: int, output_dir: str):
         """
-        Use the native rfdetr training method.
-        This handles mixed precision, backbone freezing, and optimizers internally.
+        Use the native rfdetr training method with automatic saving.
         """
-        # The rfdetr library typically expects a path to a COCO directory or similar
-        # We will point it to the annotations we saved
         self.model.train(
             dataset_dir=dataset_path,
             epochs=epochs,
             lr=lr,
             batch_size=batch_size,
-            device=str(self.device)
+            device=str(self.device),
+            output_dir=output_dir
         )
 
     def predict(self, image):
         """Perform inference using the library's high-level API."""
-        # Note: model.infer() handles PIL images or paths
         return self.model.infer(image)
 
     def save(self, path: str):
-        """Save the model weights."""
-        # self.model is the ModelContext, self.model.model is the torch.nn.Module
-        torch.save(self.model.model.state_dict(), path)
-
-    def load_weights(self, path: str):
-        """Load the model weights."""
-        self.model.model.load_state_dict(torch.load(path, map_location=self.device))
+        """
+        Manual save fallback using the underlying torch module.
+        Useful for exporting models outside the native output_dir.
+        """
+        target = self.model
+        for _ in range(3):
+            if hasattr(target, "state_dict"):
+                torch.save(target.state_dict(), path)
+                return
+            if hasattr(target, "model"):
+                target = target.model
+            else:
+                break
+        torch.save(target, path)

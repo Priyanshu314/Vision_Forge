@@ -19,9 +19,11 @@ def train_model_task(self, run_id: str):
     run_dir = Path("data/runs") / run_id
     images_dir = run_dir / "images"
     ann_file = run_dir / "annotations" / "train.json"
+    dataset_dir = run_dir / "dataset"
+    save_dir = run_dir / "models"
+    save_dir.mkdir(parents=True, exist_ok=True)
     
     # 3. Create Roboflow-style Dataset Structure
-    dataset_dir = run_dir / "dataset"
     train_dir = dataset_dir / "train"
     valid_dir = dataset_dir / "valid"
     test_dir = dataset_dir / "test"
@@ -30,7 +32,6 @@ def train_model_task(self, run_id: str):
         d.mkdir(parents=True, exist_ok=True)
         
     # 4. Copy images and annotations to 'train', 'valid', and 'test' folders
-    # We populate all splits to ensure the rfdetr pipeline has data for all phases
     for d in [train_dir, valid_dir, test_dir]:
         if images_dir.exists():
             for img_path in images_dir.glob("*"):
@@ -48,21 +49,20 @@ def train_model_task(self, run_id: str):
         "pretrained": model_cfg.pretrained
     })
     
-    # 6. Trigger Native Training
+    # 6. Trigger Native Training with automatic saving
     print(f"Starting native rfdetr training for {run_id}...")
     dataset_path_abs = str(dataset_dir.resolve())
+    save_dir_abs = str(save_dir.resolve())
     
     wrapper.train(
         dataset_path=dataset_path_abs,
         epochs=train_cfg.epochs,
         lr=train_cfg.learning_rate,
-        batch_size=train_cfg.batch_size
+        batch_size=train_cfg.batch_size,
+        output_dir=save_dir_abs
     )
 
-    # 7. Save Final Artifact
-    save_dir = run_dir / "models"
-    save_dir.mkdir(parents=True, exist_ok=True)
-    save_path = save_dir / "model.pt"
-    wrapper.save(str(save_path))
-    
-    return {"status": "completed", "run_id": run_id, "model_path": str(save_path)}
+    # 7. Final Check
+    # The weights will be in save_dir_abs/checkpoint.pth or similar
+    # We can provide the directory path as the result
+    return {"status": "completed", "run_id": run_id, "model_dir": save_dir_abs}
