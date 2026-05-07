@@ -65,8 +65,10 @@ def run_test():
         status_resp = requests.get(f"{BASE_URL}/train/status/{task_id}")
         status_resp.raise_for_status()
         data = status_resp.json()
-        status = data["status"]
-        result = data.get("result")
+        
+        # Defensive check for different backend versions
+        status = data.get("status") or data.get("state")
+        result = data.get("result") or data.get("meta")
         
         if status == "SUCCESS":
             print(f"\n🎉 Training COMPLETED!")
