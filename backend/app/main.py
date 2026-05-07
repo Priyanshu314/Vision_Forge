@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
 from ..core.config import load_config
-from ..routes import upload, sampling, annotation, training
+from ..routes import upload, sampling, annotation, training, inference
 
 
 def create_app() -> FastAPI:
@@ -15,6 +15,7 @@ def create_app() -> FastAPI:
     app.include_router(sampling.router, tags=["Sampling"])
     app.include_router(annotation.router, tags=["Annotation"])
     app.include_router(training.router, tags=["Training"])
+    app.include_router(inference.router, tags=["Inference"])
 
     return app
 
