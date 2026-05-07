@@ -1,7 +1,7 @@
 import json
 from fastapi import APIRouter, HTTPException
 from ..services.inference_service import run_inference_and_eval
-from .upload_service import DATA_DIR
+from ..services.upload_service import DATA_DIR
 
 router = APIRouter()
 
