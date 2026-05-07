@@ -1,7 +1,14 @@
 import torch
 import torch.nn as nn
-from torchvision.models.detection import detr_resnet50
+import torchvision
 from typing import Dict, Any
+
+try:
+    from torchvision.models.detection import detr_resnet50
+except ImportError:
+    # Fallback/Diagnostic for older torchvision versions
+    print(f"DEBUG: torchvision version: {torchvision.__version__}")
+    detr_resnet50 = None
 
 
 class ModelWrapper:
@@ -14,6 +21,13 @@ class ModelWrapper:
 
     def load_model(self, config: Dict[str, Any]):
         """Initialize the model based on configuration."""
+        if detr_resnet50 is None:
+            raise ImportError(
+                f"detr_resnet50 not found in torchvision {torchvision.__version__}. "
+                "Please ensure you have run 'uv sync' with the updated pyproject.toml "
+                "or install manually: pip install torchvision>=0.15.0"
+            )
+
         # Using torchvision DETR as a reliable proxy for the interface
         # In a real RF-DETR setup, we would load the specific nano/small weights here
         self.model = detr_resnet50(
