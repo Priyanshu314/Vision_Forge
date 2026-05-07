@@ -6,8 +6,9 @@ set -e
 echo "🚀 Starting Pod Setup..."
 
 # 1. Update and Install System Dependencies
-echo "[1/6] Installing system dependencies (Redis, Git)..."
-apt-get update && apt-get install -y redis-server git curl libgl1
+echo "[1/6] Installing system dependencies (Node.js, Redis, Git)..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+apt-get update && apt-get install -y nodejs redis-server git curl libgl1
 
 # 2. Install UV (Fast Python Package Manager)
 echo "[2/6] Installing uv..."

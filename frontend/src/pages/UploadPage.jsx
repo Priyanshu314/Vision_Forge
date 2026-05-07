@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Play, CheckCircle } from 'lucide-react';
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "/api";
 
 export default function UploadPage() {
   const [files, setFiles] = useState([]);

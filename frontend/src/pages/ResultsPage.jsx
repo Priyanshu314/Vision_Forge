@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Activity, BarChart3, Image as ImageIcon } from 'lucide-react';
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "/api";
 
 export default function ResultsPage() {
   const { runId } = useParams();
