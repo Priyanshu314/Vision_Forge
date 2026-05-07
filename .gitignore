@@ -13,7 +13,3 @@ wheels/
 data/
 test_images/
 outputs/
-
-# Test Scripts
-test_client.py
-test_annotation.py
