@@ -35,7 +35,7 @@ class ModelWrapper:
         # The rfdetr library typically expects a path to a COCO directory or similar
         # We will point it to the annotations we saved
         self.model.train(
-            data=dataset_path,
+            dataset_dir=dataset_path,
             epochs=epochs,
             lr=lr,
             batch_size=batch_size,
