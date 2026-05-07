@@ -4,11 +4,13 @@ from pathlib import Path
 from ..core.celery_app import celery_app
 from ..ml.model import ModelWrapper
 from ..ml.dataset import CocoDataset, collate_fn
-from ..core.config import get_config
+from ..core.config import get_config, load_config
 
 @celery_app.task(bind=True)
 def train_model_task(self, run_id: str):
     """Celery task for training the model."""
+    # Ensure config is loaded in the worker process
+    load_config("backend/config.yaml")
     config = get_config()
     train_cfg = config.training
     model_cfg = config.model
