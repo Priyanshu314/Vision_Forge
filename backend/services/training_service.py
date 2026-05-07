@@ -1,4 +1,5 @@
 import os
+import shutil
 from pathlib import Path
 from ..core.celery_app import celery_app
 from ..ml.model import ModelWrapper
@@ -15,12 +16,38 @@ def train_model_task(self, run_id: str):
     model_cfg = config.model
     
     # 2. Path Setup
-    # rfdetr needs the directory containing annotations/train.json and the images
     run_dir = Path("data/runs") / run_id
-    # Ensure full path for the library
-    run_dir_abs = str(run_dir.resolve())
+    images_dir = run_dir / "images"
+    ann_file = run_dir / "annotations" / "train.json"
     
-    # 3. Initialize Official Model
+    # 3. Create Roboflow-style Dataset Structure
+    dataset_dir = run_dir / "dataset"
+    train_dir = dataset_dir / "train"
+    valid_dir = dataset_dir / "valid"
+    test_dir = dataset_dir / "test"
+    
+    for d in [train_dir, valid_dir, test_dir]:
+        d.mkdir(parents=True, exist_ok=True)
+        
+    # 4. Copy images and annotations to 'train' folder
+    # In a production environment, we would use symlinks to save space
+    # but for an MVP, copying ensures absolute reliability.
+    if images_dir.exists():
+        for img_path in images_dir.glob("*"):
+            if img_path.is_file():
+                shutil.copy(img_path, train_dir / img_path.name)
+                
+    # Rename and move annotation file
+    if ann_file.exists():
+        shutil.copy(ann_file, train_dir / "_annotations.coco.json")
+        
+    # rfdetr needs empty json files for valid/test if they don't exist
+    empty_coco = '{"images": [], "annotations": [], "categories": []}'
+    for d in [valid_dir, test_dir]:
+        with open(d / "_annotations.coco.json", "w") as f:
+            f.write(empty_coco)
+            
+    # 5. Initialize Official Model
     num_classes = model_cfg.num_classes
     wrapper = ModelWrapper(num_classes=num_classes)
     wrapper.load_model({
@@ -28,20 +55,18 @@ def train_model_task(self, run_id: str):
         "pretrained": model_cfg.pretrained
     })
     
-    # 4. Trigger Native Training
-    # rfdetr handles the mixed precision and logging internally
+    # 6. Trigger Native Training
     print(f"Starting native rfdetr training for {run_id}...")
+    dataset_path_abs = str(dataset_dir.resolve())
     
-    # We pass the root run directory. 
-    # The library will look for annotations/train.json and images/
     wrapper.train(
-        dataset_path=run_dir_abs,
+        dataset_path=dataset_path_abs,
         epochs=train_cfg.epochs,
         lr=train_cfg.learning_rate,
         batch_size=train_cfg.batch_size
     )
 
-    # 5. Save Final Artifact
+    # 7. Save Final Artifact
     save_dir = run_dir / "models"
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / "model.pt"
