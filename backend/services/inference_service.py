@@ -45,27 +45,27 @@ def run_inference_and_eval(run_id: str):
     image_paths = list(images_dir.glob("*"))
     predictions = []
     
-    print(f"Running native batch inference on {len(image_paths)} images...")
+    print(f"Running native batch inference on {len(image_paths)} images with threshold 0.1...")
     
     # Process in batches of 8
     for i in range(0, len(image_paths), 8):
         batch_paths = image_paths[i:i+8]
         batch_images = [Image.open(p).convert("RGB") for p in batch_paths]
         
-        # Using the native model.predict() via our wrapper
-        # This returns a list of supervision.Detections objects
-        batch_results = wrapper.predict(batch_images, threshold=0.5)
+        # Lowered threshold to 0.1 to ensure we get results for small sample trainings
+        batch_results = wrapper.predict(batch_images, threshold=0.1)
         
         for img_path, detections in zip(batch_paths, batch_results):
-            # detections is a supervision.Detections object
-            # Convert to COCO format
-            for i in range(len(detections.xyxy)):
-                x1, y1, x2, y2 = detections.xyxy[i]
+            num_found = len(detections.xyxy)
+            print(f"  - {img_path.name}: Found {num_found} detections")
+            
+            for j in range(num_found):
+                x1, y1, x2, y2 = detections.xyxy[j]
                 predictions.append({
                     "image_id": img_path.name,
-                    "category_id": int(detections.class_id[i]) + 1, # 1-indexed for COCO
+                    "category_id": int(detections.class_id[j]) + 1, # 1-indexed for COCO
                     "bbox": [float(x1), float(y1), float(x2 - x1), float(y2 - y1)],
-                    "score": float(detections.confidence[i])
+                    "score": float(detections.confidence[j])
                 })
 
     # 4. Save Predictions
