@@ -48,6 +48,10 @@ class ModelWrapper:
         return self.model.infer(image)
 
     def save(self, path: str):
-        """Save the model checkpoint."""
-        # rfdetr usually saves its own checkpoints, but we can export/save specifically
-        self.model.save(path)
+        """Save the model weights."""
+        # self.model is the ModelContext, self.model.model is the torch.nn.Module
+        torch.save(self.model.model.state_dict(), path)
+
+    def load_weights(self, path: str):
+        """Load the model weights."""
+        self.model.model.load_state_dict(torch.load(path, map_location=self.device))

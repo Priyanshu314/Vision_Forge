@@ -40,6 +40,6 @@ async def get_training_status(task_id: str):
     res = AsyncResult(task_id)
     return {
         "task_id": task_id,
-        "state": res.state,
-        "meta": res.info
+        "status": res.state,
+        "result": str(res.result) if res.state == "FAILURE" else res.result
     }

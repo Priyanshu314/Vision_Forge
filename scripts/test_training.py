@@ -3,86 +3,91 @@ import time
 import os
 from pathlib import Path
 
-# Configuration
 BASE_URL = "http://127.0.0.1:8000"
-TEST_IMAGE_DIR = Path("test_images")
-TEST_IMAGE_DIR.mkdir(exist_ok=True)
 
-def create_dummy_images(count=3):
-    from PIL import Image
-    import numpy as np
-    paths = []
-    for i in range(count):
-        path = TEST_IMAGE_DIR / f"train_test_{i}.jpg"
-        img = Image.fromarray(np.random.randint(0, 255, (480, 480, 3), dtype=np.uint8))
-        img.save(path)
-        paths.append(path)
-    return paths
+def run_test():
+    print("🚀 Starting End-to-End Training Test\n")
 
-def run_training_test():
-    print("🚀 Starting End-to-End Training Test")
-    
-    # 1. Upload
-    print("\n[1/4] Uploading images...")
-    image_paths = create_dummy_images(5)
-    files = [("files", (os.path.basename(p), open(p, "rb"), "image/jpeg")) for p in image_paths]
+    # 1. Upload Images
+    print("[1/4] Uploading images...")
+    img_dir = Path("backend/data/sample_images") # Using the sample images we created
+    if not img_dir.exists():
+        # Fallback to creating a dummy image if sample_images doesn't exist
+        img_dir.mkdir(parents=True, exist_ok=True)
+        from PIL import Image
+        import numpy as np
+        for i in range(3):
+            Image.fromarray(np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)).save(img_dir / f"test_{i}.jpg")
+
+    files = [("files", open(f, "rb")) for f in img_dir.glob("*.jpg")]
     resp = requests.post(f"{BASE_URL}/upload", files=files)
     resp.raise_for_status()
     run_id = resp.json()["run_id"]
-    print(f"✅ Uploaded. Run ID: {run_id}")
+    print(f"✅ Uploaded. Run ID: {run_id}\n")
 
-    # 2. Annotate (Required for training)
-    print("\n[2/4] Adding COCO annotations...")
+    # 2. Add Annotations
+    print("[2/4] Adding COCO annotations...")
+    # Mocking some COCO annotations for the uploaded images
+    images = []
+    annotations = []
+    for i, f in enumerate(img_dir.glob("*.jpg")):
+        images.append({"id": i, "file_name": f.name})
+        annotations.append({
+            "id": i,
+            "image_id": i,
+            "category_id": 1,
+            "bbox": [10, 10, 50, 50],
+            "area": 2500,
+            "iscrowd": 0,
+            "segmentation": []
+        })
+    
     coco_data = {
-        "images": [{"id": i, "file_name": f"train_test_{i}.jpg"} for i in range(5)],
-        "annotations": [
-            {
-                "id": i,
-                "image_id": i,
-                "bbox": [100, 100, 50, 50],
-                "category_id": 1
-            } for i in range(5)
-        ],
+        "images": images,
+        "annotations": annotations,
         "categories": [{"id": 1, "name": "defect"}]
     }
-    resp = requests.post(f"{BASE_URL}/annotate/{run_id}", json=coco_data)
-    resp.raise_for_status()
-    print("✅ Annotations saved.")
+    
+    ann_resp = requests.post(f"{BASE_URL}/annotate/{run_id}", json=coco_data)
+    ann_resp.raise_for_status()
+    print("✅ Annotations saved.\n")
 
-    # 3. Trigger Training
-    print("\n[3/4] Triggering training pipeline...")
-    resp = requests.post(f"{BASE_URL}/train/{run_id}")
-    resp.raise_for_status()
-    task_id = resp.json()["task_id"]
-    print(f"✅ Training started. Task ID: {task_id}")
+    # 3. Start Training
+    print("[3/4] Triggering training pipeline...")
+    train_resp = requests.post(f"{BASE_URL}/train/{run_id}")
+    train_resp.raise_for_status()
+    task_id = train_resp.json()["task_id"]
+    print(f"✅ Training started. Task ID: {task_id}\n")
 
     # 4. Poll Status
-    print("\n[4/4] Polling training status (Ctrl+C to stop)...")
+    print("[4/4] Polling training status (Ctrl+C to stop)...")
     while True:
         status_resp = requests.get(f"{BASE_URL}/train/status/{task_id}")
         status_resp.raise_for_status()
-        state = status_resp.json()["state"]
-        meta = status_resp.json().get("meta")
+        data = status_resp.json()
+        status = data["status"]
+        result = data.get("result")
         
-        if state == "SUCCESS":
+        if status == "SUCCESS":
             print(f"\n🎉 Training COMPLETED!")
-            print(f"Model saved at: {meta.get('model_path')}")
+            print(f"Model saved at: {result.get('model_path')}")
             break
-        elif state == "FAILURE":
+        elif status == "FAILURE":
             print(f"\n❌ Training FAILED!")
-            print(f"Error: {meta}")
+            print(f"Error: {result}")
             break
-        elif state == "PROGRESS":
+        elif status == "PROGRESS":
+            meta = result # In Progress, result contains the meta info
             print(f"⏳ Epoch: {meta.get('epoch')} | Batch: {meta.get('batch')}/{meta.get('total_batches')} | Loss: {meta.get('loss'):.4f}", end="\r")
         else:
-            print(f"📡 Current State: {state}", end="\r")
+            print(f"📡 Current State: {status}", end="\r")
             
         time.sleep(2)
 
 if __name__ == "__main__":
     try:
-        run_training_test()
+        run_test()
     except KeyboardInterrupt:
-        print("\nStopped polling.")
+        print("\n\nStopped by user.")
     except Exception as e:
-        print(f"\nAn error occurred: {e}")
+        print(f"\n\nAn error occurred: {e}")
