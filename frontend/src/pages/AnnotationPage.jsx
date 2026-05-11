@@ -8,7 +8,24 @@ export default function AnnotationPage() {
   const { runId } = useParams();
   const navigate = useNavigate();
   const [images, setImages] = useState([]);
+  const [runsHistory, setRunsHistory] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+
+  // Fetch runs history if no runId is provided
+  useEffect(() => {
+    if (runId) return;
+    const fetchRuns = async () => {
+      try {
+        const resp = await fetch(`${API_BASE}/runs`);
+        const data = await resp.json();
+        setRunsHistory(data.runs || []);
+      } catch (e) {
+        console.error("Failed to fetch runs", e);
+      }
+    };
+    fetchRuns();
+  }, [runId]);
+
   const [annotations, setAnnotations] = useState({}); // {image_id: [bboxes]}
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
@@ -127,7 +144,26 @@ export default function AnnotationPage() {
     }
   };
 
-  if (!runId) return <div className="app-container">Please start a run first.</div>;
+  if (!runId) {
+    return (
+      <div className="app-container">
+        <h1 className="title">Select a Run to Annotate</h1>
+        {runsHistory.length === 0 ? (
+          <p style={{color: 'var(--text-dim)'}}>No runs found. Please go to UPLOAD and start a run.</p>
+        ) : (
+          <div style={{display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '2rem'}}>
+            {runsHistory.map(id => (
+              <button key={id} className="btn btn-secondary" style={{textAlign: 'left', display: 'flex', justifyContent: 'space-between', padding: '1rem'}} onClick={() => navigate(`/annotate/${id}`)}>
+                <span>Run ID: <strong>{id}</strong></span>
+                <span>Annotate ➔</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (images.length === 0) return <div className="app-container">Loading images...</div>;
 
   return (

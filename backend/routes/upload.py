@@ -40,3 +40,24 @@ async def upload_images(files: List[UploadFile] = File(...)):
         "num_images": len(saved_paths),
         "saved_paths": saved_paths,
     }
+
+@router.get("/runs")
+def list_runs():
+    """List all available runs."""
+    from pathlib import Path
+    import os
+    runs_dir = Path("data/runs")
+    if not runs_dir.exists():
+        return {"runs": []}
+    
+    # Sort by creation time (newest first)
+    runs = []
+    for d in runs_dir.iterdir():
+        if d.is_dir():
+            runs.append({
+                "run_id": d.name,
+                "created_at": os.path.getctime(d)
+            })
+            
+    runs.sort(key=lambda x: x["created_at"], reverse=True)
+    return {"runs": [r["run_id"] for r in runs]}
