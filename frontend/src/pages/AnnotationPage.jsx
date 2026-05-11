@@ -22,9 +22,15 @@ export default function AnnotationPage() {
     // In a real app, we'd have a route to list images in a run
     // For this MVP, we'll assume a fixed number or handle it via sampling
     const fetchImages = async () => {
-       const resp = await fetch(`${API_BASE}/sample/${runId}?limit=20`);
+       const resp = await fetch(`${API_BASE}/sample/${runId}?k=20`);
        const data = await resp.json();
-       setImages(data.samples || []);
+       // Backend returns absolute paths in data.sampled_paths. Extract filename.
+       const filenames = (data.sampled_paths || []).map(p => {
+         // handle both Windows and Unix path separators
+         const parts = p.split(/[\/\\]/);
+         return parts[parts.length - 1];
+       });
+       setImages(filenames);
     };
     fetchImages();
   }, [runId]);

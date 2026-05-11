@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from ..core.config import load_config
 from ..routes import upload, sampling, annotation, training, inference
@@ -9,6 +10,9 @@ def create_app() -> FastAPI:
 
     # Load configuration once at startup
     load_config("backend/config.yaml")
+    
+    # Mount static files to serve images
+    app.mount("/data", StaticFiles(directory="data"), name="data")
 
     # Include routers
     app.include_router(upload.router, tags=["Upload"])
