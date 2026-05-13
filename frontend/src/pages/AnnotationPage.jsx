@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Save, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
 
 const API_BASE = "/api";
 
@@ -10,6 +10,24 @@ export default function AnnotationPage() {
   const [images, setImages] = useState([]);
   const [runsHistory, setRunsHistory] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  const loadingMessages = [
+    "Initializing DINOv2 vision model...",
+    "Allocating GPU tensors...",
+    "Extracting deep embeddings...",
+    "Running KMeans clustering...",
+    "Selecting optimal representative samples...",
+    "Finalising image subset..."
+  ];
+
+  useEffect(() => {
+    if (images.length > 0) return;
+    const interval = setInterval(() => {
+      setLoadingStep((prev) => Math.min(prev + 1, loadingMessages.length - 1));
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [images.length]);
 
   // Fetch runs history if no runId is provided
   useEffect(() => {
@@ -164,7 +182,36 @@ export default function AnnotationPage() {
     );
   }
 
-  if (images.length === 0) return <div className="app-container">Loading images...</div>;
+  if (images.length === 0) {
+    return (
+      <div className="app-container" style={{textAlign: 'center', marginTop: '4rem'}}>
+        <div style={{marginBottom: '2rem'}}>
+          <Activity className="spin" size={48} color="var(--accent-primary)" style={{margin: '0 auto'}} />
+        </div>
+        <h2 style={{fontSize: '1.5rem', marginBottom: '1rem'}}>Analyzing Dataset</h2>
+        <p style={{
+          color: 'var(--accent-secondary)', 
+          fontWeight: 600, 
+          fontSize: '1.1rem',
+          maxWidth: '600px', 
+          margin: '0 auto',
+          transition: 'opacity 0.3s ease-in-out'
+        }}>
+          {loadingMessages[loadingStep]}
+        </p>
+        <p style={{color: 'var(--text-dim)', marginTop: '1rem', fontSize: '0.9rem'}}>
+          (This may take longer on the first run as the foundation model downloads)
+        </p>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          .spin { animation: spin 2s linear infinite; }
+        `}</style>
+      </div>
+    );
+  }
 
   return (
     <div>
