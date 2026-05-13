@@ -139,7 +139,7 @@ export default function AnnotationPage() {
     images.forEach((name, imgIdx) => {
       const boxes = annotations[name] || [];
       boxes.forEach(box => {
-        coco.annotations.append({
+        coco.annotations.push({
           id: annId++,
           image_id: imgIdx,
           category_id: 1,
