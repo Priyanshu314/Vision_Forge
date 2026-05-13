@@ -20,6 +20,10 @@ class TrainingConfig(BaseModel):
     learning_rate: float = Field(default=1e-3, gt=0)
     optimizer: str = Field(default="adam", description="Optimizer name")
     weight_decay: float = Field(default=0.0, ge=0.0)
+    train_split: float = Field(default=0.8, ge=0.0, le=1.0, description="Fraction of dataset for training")
+    valid_split: float = Field(default=0.1, ge=0.0, le=1.0, description="Fraction of dataset for validation")
+    test_split: float = Field(default=0.1, ge=0.0, le=1.0, description="Fraction of dataset for testing")
+
 
 class SamplingConfig(BaseModel):
     """Dataset sampling strategy."""
