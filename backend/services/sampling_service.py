@@ -28,7 +28,8 @@ def _load_dino():
     import torch
     from torchvision import transforms
 
-    _dino_model = torch.hub.load("facebookresearch/dinov2", "dinov2_vits14", pretrained=True)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    _dino_model = torch.hub.load("facebookresearch/dinov2", "dinov2_vits14", pretrained=True).to(device)
     _dino_model.eval()
 
     _dino_transform = transforms.Compose([
@@ -44,13 +45,14 @@ def _extract_embedding(image_path: str) -> np.ndarray:
 
     _load_dino()
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     img = Image.open(image_path).convert("RGB")
-    tensor = _dino_transform(img).unsqueeze(0)  # (1, 3, 224, 224)
+    tensor = _dino_transform(img).unsqueeze(0).to(device)  # (1, 3, 224, 224)
 
     with torch.no_grad():
         embedding = _dino_model(tensor)  # (1, D)
 
-    vec = embedding.squeeze(0).numpy().astype(np.float64)
+    vec = embedding.cpu().squeeze(0).numpy().astype(np.float64)
     # L2-normalise
     norm = np.linalg.norm(vec)
     if norm > 0:
