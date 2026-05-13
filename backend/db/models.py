@@ -35,5 +35,20 @@ def save_run(run: Run) -> None:
 
 
 def get_run(run_id: str):
-    """Retrieve a Run by its ID, or None if not found."""
-    return _runs.get(run_id)
+    """Retrieve a Run by its ID. If not in memory, reconstruct from disk."""
+    if run_id in _runs:
+        return _runs[run_id]
+        
+    # Check if run exists on disk to support persistence across restarts
+    from pathlib import Path
+    import os
+    run_dir = Path("data/runs") / run_id
+    if run_dir.exists() and run_dir.is_dir():
+        run = Run(run_id)
+        # Use directory creation time for consistency
+        from datetime import datetime, timezone
+        run.created_at = datetime.fromtimestamp(os.path.getctime(run_dir), tz=timezone.utc)
+        _runs[run_id] = run
+        return run
+        
+    return None
